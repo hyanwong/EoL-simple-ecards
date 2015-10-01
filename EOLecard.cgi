@@ -2,11 +2,9 @@
 use CGI  qw(-utf8);
 use URI::Escape;
 use HTML::Entities;
-use Encode qw/decode is_utf8/;
 use LWP::Simple;
 use JSON -support_by_pp;
 use Try::Tiny;
-use Encode;
 use utf8; 
 
 $q = CGI->new;
@@ -14,9 +12,7 @@ print $q->header;
 
 my $to = $q->param('mailto');
 my $mesg = $q->param('m');
-$mesg = ROT13_plus($mesg) if $mesg;
 my $recipient_name = $q->param('r');
-$recipient_name = ROT13_plus($recipient_name) if $recipient_name;
 my $data_objID = defined($q->param('i'))?int($q->param('i')):undef;
 my $pageID = defined($q->param('p'))?int($q->param('p')):undef;
 my $card_style = int($q->param('s')||0);
@@ -125,17 +121,17 @@ unless (defined $data_objID) {
     
     my $url = $q->url()."?i=$data_objID&s=$card_style";
     #strip html tags
+    print $q->start_html(-title=>'Ecard');
     if ($mesg) {
-        $mesg =~ s/[><]//g; #strip any html, to avoid malicious stuff
-        $url.= "&m=".uri_escape_utf8($mesg);
+        $mesg =~ s/[><]//g; #strip any html, to avoid malicious stuff passed into the email
+        $url.= "&m=".uri_escape_utf8(ROT13_plus($mesg));
     } else {
         $url.= "&m=";
     }        
     if ($recipient_name) {
         $recipient_name =~ s/[><]//g; #strip any html, to avoid malicious stuff
-        $url.="&r=".uri_escape_utf8($recipient_name);
+        $url.="&r=".uri_escape_utf8(ROT13_plus($recipient_name));
     }
-    print $q->start_html(-title=>'Ecard');
     print 'Your card is ready. <a href="mailto:';
     print uri_escape_utf8($to);
     print '?subject=';
@@ -158,17 +154,17 @@ unless (defined $data_objID) {
     } else {
         $src =~ s/_orig.jpg$/_580_360.jpg/;
         $title = 'An EoL ecard';
-        $title .= " for $recipient_name" if defined $recipient_name;
+        $title .= " for ".ROT13_plus($recipient_name) if defined $recipient_name;
         print $q->start_html(-title=>$title);
         print "<img src = '$src'><br />";
-        print encode_entities(uri_unescape($mesg), '<>') if defined $mesg;
+        print encode_entities(ROT13_plus($mesg)) if defined $mesg;
         print $q->end_html;
     }
 } else {
     my $src = get_img_src($data_objID);
     unless ($src) {
         print $q->start_html(-title=>'EoL error');
-    	print "<h1>Sorry, we could not find this image</h1>";
+    	print "<h1>Sorry, we could not find the required image</h1>";
     	print "Perhaps the Encyclopedia of Life is not accessible at the moment?";
     	print "Please try again later";
         print $q->end_html;
@@ -178,18 +174,18 @@ unless (defined $data_objID) {
         print "<div id='header'><a href='http://eol.org'><img src='http://eol.org/assets/v2/logo-f69b42438cbe43f0eadf60243e0fd8be.png' /></a>
         <p>This is a simple test to see if you can use mailto links to create ecards</p>
 <img src='$src' /><br />
-<form action=''>
-  Recipient name: <input type='text' name='r' id='r'><br>
-  Recipient email: <input type='email' name='mailto' id='mailto'><br>
-  Message: <textarea name='m' id='m'></textarea>
-  <input type='hidden' name='i' value='$data_objID'>
-  Card style
-  <select name='style'>
-  <option value='0' selected='selected'>normal</option>
-  <option value='1'>fancy</option>
-  <option value='2'>etc</option>
-  </select><br />
-  <input type='submit' name='Construct card'>
+<form action='' accept-charset='utf-8'>
+Recipient name: <input type='text' name='r' id='r'><br />
+Recipient email: <input type='email' name='mailto' id='mailto'><br />
+Message: <textarea name='m' id='m'></textarea>
+<input type='hidden' name='i' value='$data_objID'>
+Card style
+<select name='style'>
+<option value='0' selected='selected'>normal</option>
+<option value='1'>fancy</option>
+<option value='2'>etc</option>
+</select><br />
+<input type='submit' name='Construct card'>
 </form>
 </div>";
 	print $q->end_html();
